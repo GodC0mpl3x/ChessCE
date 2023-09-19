@@ -971,6 +971,97 @@ usb_error_t handle_usb_event(usb_event_t event, void *event_data, usb_callback_d
     return USB_SUCCESS;
 }
 
+/* CONNECTION FUNCTIONS */
+void SendSerial(const char *message) {
+    size_t totalBytesWritten = 0;
+    size_t messageLength = strlen(message);
+
+    while (totalBytesWritten < messageLength) {
+        int bytesWritten = srl_Write(&srl, message + totalBytesWritten, messageLength - totalBytesWritten);
+
+        if (bytesWritten < 0) {
+            printf("SRL W ERR");
+        }
+
+        totalBytesWritten += bytesWritten;
+    }
+}
+
+
+void readSRL()
+{
+    size_t bytes_read = srl_Read(&srl, in_buffer, sizeof in_buffer);
+
+    if (bytes_read < 0)
+    {
+        // has_srl_device = false;
+        printf("SRL 0B");
+    }
+    else if (bytes_read > 0)
+    {
+        in_buffer[bytes_read] = '\0';
+        has_unread_data = true;
+
+		// TODO: rip out all the GFX to make it match this game instead
+
+        /* BRIDGE CONNECTED GFX */
+        if (strcmp(in_buffer, "bridgeConnected") == 0) {
+            bridge_connected = true;
+            gfx_SetColor(0x00);
+            gfx_FillRectangle(((GFX_LCD_WIDTH - gfx_GetStringWidth("Bridge disconnected!")) / 2), 80, gfx_GetStringWidth("Bridge disconnected!"), 15);
+            gfx_SetColor(0x00);
+            gfx_PrintStringXY("Bridge connected!", ((GFX_LCD_WIDTH - gfx_GetStringWidth("Bridge connected!")) / 2), 80);
+        }
+        if (strcmp(in_buffer, "bridgeDisconnected") == 0) {
+            bridge_connected = false;
+            gfx_SetColor(0x00);
+            gfx_FillRectangle(((GFX_LCD_WIDTH - gfx_GetStringWidth("Bridge disconnected!")) / 2), 80, gfx_GetStringWidth("Bridge disconnected!"), 15);
+            gfx_SetColor(0x00);
+            gfx_PrintStringXY("Bridge disconnected!", ((GFX_LCD_WIDTH - gfx_GetStringWidth("Bridge disconnected!")) / 2), 80);
+        }
+
+        /* Internet Connected GFX */
+        if (strcmp(in_buffer, "SERIAL_CONNECTED_CONFIRMED_BY_SERVER") == 0) {
+            internet_connected = true;
+            gfx_SetColor(0x00);
+            gfx_FillRectangle(((GFX_LCD_WIDTH - gfx_GetStringWidth("Internet disconnected!")) / 2), 110, gfx_GetStringWidth("Internet disconnected!"), 15);
+            gfx_SetColor(0x00);
+            gfx_PrintStringXY("Internet connected!", ((GFX_LCD_WIDTH - gfx_GetStringWidth("Internet connected!")) / 2), 110);
+        }
+        if (strcmp(in_buffer, "internetDisconnected") == 0) {
+            internet_connected = false;
+            gfx_SetColor(0x00);
+            gfx_FillRectangle(((GFX_LCD_WIDTH - gfx_GetStringWidth("Internet disconnected!")) / 2), 110, gfx_GetStringWidth("Internet disconnected!"), 15);
+            gfx_SetColor(0x00);
+            gfx_PrintStringXY("Internet disconnected!", ((GFX_LCD_WIDTH - gfx_GetStringWidth("Internet disconnected!")) / 2), 110);
+        }
+
+
+        if (strcmp(in_buffer, "ALREADY_CONNECTED") == 0) {
+            alreadyConnectedScreen();
+        }
+
+        if (strcmp(in_buffer, "USER_NOT_FOUND") == 0) {
+            userNotFoundScreen();
+        }
+
+        if (startsWith(in_buffer, "YOUR_IP:")) {
+            displayIP(in_buffer + strlen("YOUR_IP:"));
+        }
+
+        has_unread_data = false;
+    }
+}
+
+void sendSerialInitData()
+{
+    serial_init_data_sent = true;
+    char init_serial_connected_text_buffer[17] = "SERIAL_CONNECTED";
+    SendSerial(init_serial_connected_text_buffer);
+}
+
+
+
 void main(void) {
 	ti_var_t savefile;
 	gfx_Begin( gfx_8bpp );
@@ -985,7 +1076,21 @@ void main(void) {
         return 1;
     }
 
-	
+
+	//Open and check for multiplayer game data
+	appvar = ti_Open("CHESSNET","r");
+	if (appvar == 0){
+		// No game set to join
+	} else {
+		// read game data to be used to join a match
+		// TODO: figure out a standard for this and implement it
+		// I'm expecting it to be something like IP of server to connect to and port...
+		// and maybe username of person being played against
+
+	}
+
+
+
 	/* enter the main game loop */
 	game_loop();
 
