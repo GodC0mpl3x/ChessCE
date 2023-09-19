@@ -354,7 +354,10 @@ void run_game(void) {
                 
 				if (player[current_player].draw_selection) {
 					compute_move(player[current_player].selrow, player[current_player].selcol, row, col, move_str);
-					    
+					//TODO:
+					// Send move over serial here if connected..?
+					// Or do I save that for the end of this entire if statement? 
+					// Guess and check 😂
 					K=move_str[0]-16*move_str[1]+C;
 					L=move_str[2]-16*move_str[3]+C;
 					    
