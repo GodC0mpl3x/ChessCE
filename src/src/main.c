@@ -277,6 +277,37 @@ void run_game(void) {
 				in_check();
 			}
 		}
+
+		if (player[current_player].input == REMOTE_INPUT){
+			draw_red_text("waiting...", 239, (240 - 8) / 2);
+			N = 0;
+
+			//TODO handle remote player move input
+			// Recieve remote string set up as move_str = "{col_from}{row_from}{col_to}{row_to}"
+
+			// K=move_str[0]-16*move_str[1]+C;
+			// L=move_str[2]-16*move_str[3]+C;
+
+
+
+			//Copied from other game modes, i'm just gonna leave this here and hope it works as expected
+			F(i, 0, U) A[i].K = 0;
+			if ((check_test = D(k, -I, I, Q, 1, 1, O, 9, 2)) == I) {
+				k ^= 24;
+				steps++;
+				gfx_SetDrawBuffer();
+				draw_board();
+				player[current_player].first_move_done = true; //Not sure this is needed cause not AI, but it shows in user input too.. hmm
+				current_player ^= 1;
+				draw_controls();
+				gfx_SwapDraw();
+				gfx_SetDrawScreen();
+				key = 1;
+			} else if (check_test == -I/2) {
+				in_check();
+			}
+
+		}
         
 		if ( key ) {
 			if (player[current_player].input == USER_INPUT) {
