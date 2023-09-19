@@ -357,7 +357,9 @@ void run_game(void) {
 					//TODO:
 					// Send move over serial here if connected..?
 					// Or do I save that for the end of this entire if statement? 
-					// Guess and check 😂
+					// Guess and check 😂""
+					SendSerial(move_str)
+					///
 					K=move_str[0]-16*move_str[1]+C;
 					L=move_str[2]-16*move_str[3]+C;
 					    
