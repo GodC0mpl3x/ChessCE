@@ -87,6 +87,7 @@ typedef struct player_struct {
 player_t player[2];
 
 const char me[] = "matt \"mateoconlechuga\" waltz";
+const char me2[] = ".bern."
 const char them[] = "engine by h.g. muller";
 const char new_game[] = "new game";
 const char load_game[] = "load game";
@@ -98,14 +99,15 @@ const char no_str[] = "no";
 const char yes_str[] = "yes";
 const char human1_str[] = "human v calc";	  // mode 0
 const char calc2_str[] = "calc v calc";		// mode 1
-const char human2_str[] = "human v human";	 // mode 2
+const char remote1_str[] = "network match"; // mode 2
+const char human2_str[] = "human v human";	 // mode 3
 const char black_str[] = "black";
 const char white_str[] = "white";
 const char arrows_str[] = "use the <> arrows to set";
 const char info_str[] = "these settings will only affect a new game";
 const char white_turn_str[] = "white's turn";
 const char black_turn_str[] = "black's turn";
-const char appvar_name[] = "ChessCE";
+const char appvar_name[] = "ChessNET";
 
 void fast_exit(void);
 int D(int k, int q, int l, int e, int J, int Z, int E, int z, int n);
@@ -227,6 +229,9 @@ void run_game(void) {
 		player[0].input = AI_INPUT;
 		player[1].input = AI_INPUT;
 		break;
+	case 2: // FOR PLAYING OVER NETWORK
+		player[0].input = USER_INPUT;
+		player[1].input = REMOTE_INPUT; // ADDED REMOTE_INPUT
 	default:
 		player[0].input = USER_INPUT;
 		player[1].input = USER_INPUT;
@@ -603,6 +608,8 @@ void print_settings(void) {
 		str = calc2_str;
 		break;
 	case 2:
+		str = remote1_str;
+	case 3:
 		str = human2_str;
 		break;
 	default:
@@ -863,10 +870,87 @@ void game_loop(void) {
 	boot_ClearVRAM();
 }
 
+
+srl_device_t srl;
+bool has_srl_device = false;
+uint8_t srl_buf[512];
+bool serial_init_data_sent = false;
+usb_error_t usb_error;
+const usb_standard_descriptors_t *usb_desc;
+
+
+usb_error_t handle_usb_event(usb_event_t event, void *event_data, usb_callback_data_t *callback_data)
+{
+    usb_error_t err;
+    if ((err = srl_UsbEventCallback(event, event_data, callback_data)) != USB_SUCCESS)
+        return err;
+    if (event == USB_DEVICE_CONNECTED_EVENT && !(usb_GetRole() & USB_ROLE_DEVICE))
+    {
+        usb_device_t device = event_data;
+        USB_connected = true;
+        usb_ResetDevice(device);
+    }
+
+    if (event == USB_HOST_CONFIGURE_EVENT || (event == USB_DEVICE_ENABLED_EVENT && !(usb_GetRole() & USB_ROLE_DEVICE)))
+    {
+
+        if (has_srl_device)
+            return USB_SUCCESS;
+
+        usb_device_t device;
+        if (event == USB_HOST_CONFIGURE_EVENT)
+        {
+            device = usb_FindDevice(NULL, NULL, USB_SKIP_HUBS);
+            if (device == NULL)
+                return USB_SUCCESS;
+        }
+        else
+        {
+            device = event_data;
+        }
+
+        srl_error_t error = srl_Open(&srl, device, srl_buf, sizeof srl_buf, SRL_INTERFACE_ANY, 9600);
+        if (error)
+        {
+            gfx_End();
+            os_ClrHome();
+            printf("Error %d initting serial\n", error);
+            while (os_GetCSC())
+                ;
+            return 0;
+            return USB_SUCCESS;
+        }
+        has_srl_device = true;
+    }
+
+    if (event == USB_DEVICE_DISCONNECTED_EVENT)
+    {
+        usb_device_t device = event_data;
+        if (device == srl.dev)
+        {
+            USB_connected = false;
+            srl_Close(&srl);
+            has_srl_device = false;
+        }
+    }
+
+    return USB_SUCCESS;
+}
+
 void main(void) {
 	ti_var_t savefile;
 	gfx_Begin( gfx_8bpp );
 	gfx_SetPalette(all_gfx_pal, sizeof(all_gfx_pal), 0);
+
+	const usb_standard_descriptors_t *usb_desc = srl_GetCDCStandardDescriptors();
+    usb_error_t usb_error = usb_Init(handle_usb_event, NULL, usb_desc, USB_DEFAULT_INIT_FLAGS);
+    if (usb_error)
+    {
+        printf("usb init error\n%u\n", usb_error);
+        sleep(2);
+        return 1;
+    }
+
 	
 	/* enter the main game loop */
 	game_loop();
