@@ -12,8 +12,11 @@
 #include <debug.h>
 
 /* Shared libraries */
-#include <lib/ce/graphx.h>
-#include <lib/ce/fileioc.h>
+//#include <lib/ce/graphx.h>
+#include<srldrvce.h>
+#include<graphx.h>
+#include<fileioc.h>
+//#include <lib/ce/fileioc.h>
 #include "gfx/all_gfx.h"
 
 #define F(I, S, N) for (I = S; I < N; I++)
@@ -38,6 +41,7 @@
 
 #define USER_INPUT	0
 #define AI_INPUT	1
+#define REMOTE_INPUT 2
 
 /* version info */
 #define VERSION		1
@@ -87,7 +91,7 @@ typedef struct player_struct {
 player_t player[2];
 
 const char me[] = "matt \"mateoconlechuga\" waltz";
-const char me2[] = ".bern."
+const char me2[] = ".bern.";
 const char them[] = "engine by h.g. muller";
 const char new_game[] = "new game";
 const char load_game[] = "load game";
@@ -129,6 +133,75 @@ void draw_controls(void);
 bool load_save(void);
 void save_save(void);
 void draw_red_text(char *text, uint16_t x, uint8_t y);
+
+
+
+
+
+
+
+
+/* READ BUFFERS */
+size_t read_flen;
+uint8_t *ptr;
+static char in_buffer[32768];
+
+/* DEFINE CONNECTION VARS */
+bool USB_connected = false;
+bool prev_USB_connected = false;
+bool USB_connecting = false;
+bool bridge_connected = false;
+bool internet_connected = false;
+bool has_unread_data = false;
+srl_device_t srl;
+bool has_srl_device = false;
+uint8_t srl_buf[512];
+bool serial_init_data_sent = false;
+usb_error_t usb_error;
+const usb_standard_descriptors_t *usb_desc;
+//bool is_esp8266 = false;
+
+//uint8_t previous_kb_Data[8];
+//uint8_t debounce_delay = 10;
+
+
+/* DEFINE USER */
+//bool keyfile_available = false;
+//char *username;
+//char *authkey;
+uint8_t appvar;
+
+
+
+/* DEFINE FUNCTIONS */
+//void GFXspritesInit();
+//void GFXsettings();
+//void NoKeyFileGFX();
+//void KeyFileAvailableGFX();
+//void FreeMemory();
+//void quitProgram();
+//void login();
+void readSRL();
+void sendSerialInitData();
+void getCurrentTime();
+//void printServerPing();
+//void dashboardScreen();
+//void mailNotVerifiedScreen();
+bool startsWith(const char *str, const char *prefix);
+void displayIP(const char *ipAddress);
+//void howToUseScreen();
+void alreadyConnectedScreen();
+void userNotFoundScreen();
+//void calcIDneedsUpdateScreen();
+//void TINETChatScreen();
+//void accountInfoScreen(const char *accountInfo);
+//void updateCaseBox(bool isUppercase);
+//void ESP8266login();
+//bool kb_Update();
+
+
+
+
 
 typedef struct settings_struct {
 	int8_t mode;
@@ -207,6 +280,23 @@ char get_piece_color(uint8_t row, uint8_t col) {
 	}
 	return h;
 }
+
+/* CONNECTION FUNCTIONS */
+void SendSerial(const char *message) {
+    size_t totalBytesWritten = 0;
+    size_t messageLength = strlen(message);
+
+    while (totalBytesWritten < messageLength) {
+        int bytesWritten = srl_Write(&srl, message + totalBytesWritten, messageLength - totalBytesWritten);
+
+        if (bytesWritten < 0) {
+            printf("SRL W ERR");
+        }
+
+        totalBytesWritten += bytesWritten;
+    }
+}
+
 
 void run_game(void) {
 	uint8_t row, col;
@@ -358,7 +448,7 @@ void run_game(void) {
 					// Send move over serial here if connected..?
 					// Or do I save that for the end of this entire if statement? 
 					// Guess and check 😂""
-					SendSerial(move_str)
+					SendSerial(move_str);
 					///
 					K=move_str[0]-16*move_str[1]+C;
 					L=move_str[2]-16*move_str[3]+C;
@@ -641,11 +731,12 @@ void print_settings(void) {
 		str = human1_str;
 		break;
 	case 1:
-		str = calc2_str;
-		break;
-	case 2:
+		//str = calc2_str;
 		str = remote1_str;
-	case 3:
+		break;
+	//case 2:
+	//	str = remote1_str;
+	case 2:
 		str = human2_str;
 		break;
 	default:
@@ -907,12 +998,12 @@ void game_loop(void) {
 }
 
 
-srl_device_t srl;
-bool has_srl_device = false;
-uint8_t srl_buf[512];
-bool serial_init_data_sent = false;
-usb_error_t usb_error;
-const usb_standard_descriptors_t *usb_desc;
+//srl_device_t srl;
+//bool has_srl_device = false;
+//uint8_t srl_buf[512];
+//bool serial_init_data_sent = false;
+//usb_error_t usb_error;
+//const usb_standard_descriptors_t *usb_desc;
 
 
 usb_error_t handle_usb_event(usb_event_t event, void *event_data, usb_callback_data_t *callback_data)
@@ -973,21 +1064,7 @@ usb_error_t handle_usb_event(usb_event_t event, void *event_data, usb_callback_d
     return USB_SUCCESS;
 }
 
-/* CONNECTION FUNCTIONS */
-void SendSerial(const char *message) {
-    size_t totalBytesWritten = 0;
-    size_t messageLength = strlen(message);
 
-    while (totalBytesWritten < messageLength) {
-        int bytesWritten = srl_Write(&srl, message + totalBytesWritten, messageLength - totalBytesWritten);
-
-        if (bytesWritten < 0) {
-            printf("SRL W ERR");
-        }
-
-        totalBytesWritten += bytesWritten;
-    }
-}
 
 
 void readSRL()
@@ -1064,7 +1141,7 @@ void sendSerialInitData()
 
 
 
-void main(void) {
+int main(void) {
 	ti_var_t savefile;
 	gfx_Begin( gfx_8bpp );
 	gfx_SetPalette(all_gfx_pal, sizeof(all_gfx_pal), 0);

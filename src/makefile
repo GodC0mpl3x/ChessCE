@@ -13,6 +13,7 @@ DEBUGMODE ?= NDEBUG
 ARCHIVED ?= NO
 APPVAR ?= NO
 #----------------------------
+NAME = ChessNET
 ICONPNG := iconc.png
 DESCRIPTION ?= "ChessCE v1.2"
 #----------------------------
@@ -34,7 +35,7 @@ GFXDIR := src/gfx
 
 #----------------------------
 BSSHEAP_LOW := D031F6
-BSSHEAP_HIGH := D13FD6
+BSSHEAP_HIGH := D141A1
 STACK_HIGH := D1A87E
 INIT_LOC := D1A87F
 #----------------------------
@@ -45,4 +46,5 @@ INIT_LOC := D1A87F
 USE_FLASH_FUNCTIONS ?= YES
 #----------------------------
 
-include $(CEDEV)/bin/main_makefile
+#include $(CEDEV)/bin/main_makefile
+include $(shell cedev-config --makefile)
